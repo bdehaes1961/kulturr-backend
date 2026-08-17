@@ -58,7 +58,7 @@ const CATEGORY_MAP = {
                                                                                                   try {
                                                                                                         const { data } = await axios.get(BASE_URL, {
                                                                                                                 headers,
-                                                                                                                        params: { dateFrom, dateTo, limit: PAGE_SIZE, start },
+                                                                                                                        params: { dateFrom, dateTo, limit: PAGE_SIZE, start, clientId: CLIENT_ID },
                                                                                                                                 timeout: 15000,
                                                                                                                                       })
                                                                                                                                             if (total === null) {
