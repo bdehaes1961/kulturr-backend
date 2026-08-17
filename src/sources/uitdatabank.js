@@ -6,7 +6,7 @@ import 'dotenv/config'
 // UITDATABANK_API_KEY   = oude methode (X-Api-Key header) — voor bestaande integraties vóór 2024
 const CLIENT_ID = process.env.UITDATABANK_CLIENT_ID
 const API_KEY = process.env.UITDATABANK_API_KEY
-const BASE_URL = 'https://search.uitdatabank.be/events/'
+const BASE_URL = 'https://search-test.uitdatabank.be/events/'
 const PAGE_SIZE = 30
 
 const CATEGORY_MAP = {
