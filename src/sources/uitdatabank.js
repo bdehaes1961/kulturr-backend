@@ -87,7 +87,7 @@ export async function fetchUitEvents() {
         params: {
           dateFrom,
           dateTo,
-          regionFilter: 'gem-gent|gem-antwerpen|gem-brussel|gem-leuven|gem-mechelen|gem-hasselt|gem-brugge|gem-kortrijk',
+                    addressCountry: 'BE',
           limit: PAGE_SIZE,
           start,
           embed: true,
