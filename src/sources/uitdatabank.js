@@ -16,6 +16,10 @@ let tokenCache = { token: null, expiresAt: 0 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
+function toApiDate(date) {
+  return date.toISOString().replace(/\.\d{3}Z$/, '+00:00')
+}
+
 async function getAccessToken() {
   if (tokenCache.token && Date.now() < tokenCache.expiresAt) return tokenCache.token
   const body = new URLSearchParams({
@@ -67,8 +71,9 @@ export async function fetchUitEvents() {
   }
   const today        = new Date()
   const inNinetyDays = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000)
-  const dateFrom     = today.toISOString()
-  const dateTo       = inNinetyDays.toISOString()
+  const dateFrom     = toApiDate(today)
+  const dateTo       = toApiDate(inNinetyDays)
+  console.log('[UiTdatabank] dateFrom:', dateFrom, 'dateTo:', dateTo)
   const allEvents    = []
   let start = 0
   let total = null
