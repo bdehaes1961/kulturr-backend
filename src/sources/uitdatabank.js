@@ -3,7 +3,7 @@ import 'dotenv/config'
 
 const CLIENT_ID     = process.env.UITDATABANK_CLIENT_ID
 const CLIENT_SECRET = process.env.UITDATABANK_CLIENT_SECRET
-const BASE_URL      = 'https://search-test.uitdatabank.be/events/'
+const BASE_URL      = 'https://search-test.uitdatabank.be/events'
 const AUTH_URL      = 'https://account-test.uitid.be/realms/uitid/protocol/openid-connect/token'
 const PAGE_SIZE     = 30
 
@@ -60,8 +60,9 @@ export async function fetchUitEvents() {
   let token
   try {
     token = await getAccessToken()
+    console.log('[UiTdatabank] OAuth token verkregen')
   } catch (err) {
-    console.error('[UiTdatabank] OAuth token ophalen mislukt:', err.message, 'status:', err.response?.status)
+    console.error('[UiTdatabank] OAuth token ophalen mislukt:', err.message, 'status:', err.response?.status, 'body:', JSON.stringify(err.response?.data))
     return []
   }
   const today        = new Date()
@@ -91,11 +92,11 @@ export async function fetchUitEvents() {
       if (status === 401 || status === 403) {
         console.error(`[UiTdatabank] ${status}: credentials ongeldig. Controleer CLIENT_ID en CLIENT_SECRET`)
       } else {
-        console.error('[UiTdatabank] Fout:', err.message, 'status:', status)
+        console.error('[UiTdatabank] Fout:', err.message, 'status:', status, 'body:', JSON.stringify(err.response?.data))
       }
       break
     }
   }
   console.log('[UiTdatabank] ' + allEvents.length + ' events opgehaald')
   return allEvents
-  }
+}
