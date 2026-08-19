@@ -55,3 +55,18 @@ $$ language plpgsql;
 create trigger events_updated_at
   before update on events
   for each row execute function set_updated_at();
+
+
+-- Watchlist: gebruikers die een melding willen als tickets beschikbaar komen
+create table watchlist (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid references users(id) on delete cascade,
+  event_id        uuid references events(id) on delete cascade,
+  notify_on_sale  boolean default true,   -- ping zodra ticket_url beschikbaar is
+  notify_reminder boolean default false,  -- ping 1 dag voor het event
+  notified_at     timestamptz,            -- wanneer on-sale notificatie verstuurd is
+  created_at      timestamptz default now(),
+  unique (user_id, event_id)
+);
+
+create index on watchlist (event_id, notify_on_sale, notified_at);
