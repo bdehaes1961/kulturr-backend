@@ -105,3 +105,33 @@ export async function fetchUitEvents() {
   console.log('[UiTdatabank] ' + allEvents.length + ' events opgehaald')
   return allEvents
 }
+
+
+/**
+ * Haal één event op via zijn UiTdatabank external_id.
+ * Gebruikt door de watchlist checker om te controleren of ticket_url nu beschikbaar is.
+ *
+ * @param {string} externalId - UUID zoals opgeslagen in events.external_id
+ * @returns {object|null} genormaliseerd event, of null bij fout
+ */
+export async function fetchSingleUitEvent(externalId) {
+  if (!externalId) return null
+  let token
+  try {
+    token = await getAccessToken()
+  } catch (err) {
+    console.error('[UiTdatabank/Single] Token ophalen mislukt:', err.message)
+    return null
+  }
+
+  try {
+    const { data } = await axios.get(`${BASE_URL}/${externalId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000,
+    })
+    return normalizeUitEvent(data)
+  } catch (err) {
+    console.error(`[UiTdatabank/Single] Fout bij ${externalId}:`, err.message)
+    return null
+  }
+}
