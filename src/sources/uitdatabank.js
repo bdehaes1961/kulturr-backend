@@ -67,8 +67,8 @@ export async function fetchUitEvents() {
   }
   const today        = new Date()
   const inNinetyDays = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000)
-  const dateFrom     = today.toISOString().split('T')[0]
-  const dateTo       = inNinetyDays.toISOString().split('T')[0]
+  const dateFrom     = today.toISOString()
+  const dateTo       = inNinetyDays.toISOString()
   const allEvents    = []
   let start = 0
   let total = null
