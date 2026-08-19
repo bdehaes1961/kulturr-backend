@@ -1,6 +1,5 @@
 import { db } from './db.js'
 import { fetchUitEvents } from './sources/uitdatabank.js'
-import { fetchAllBandsintownEvents } from './sources/bandsintown.js'
 import { fetchTicketmasterEvents } from './sources/ticketmaster.js'
 
 export async function upsertEvent(event) {
@@ -20,15 +19,13 @@ export async function runAggregation() {
   console.log('[Aggregator] Start —', new Date().toLocaleString('nl-BE'))
 
   // Haal events op uit alle bronnen
-  const [uitEvents, bandsintownEvents, ticketmasterEvents] = await Promise.allSettled([
+  const [uitEvents, ticketmasterEvents] = await Promise.allSettled([
     fetchUitEvents(),
-    fetchAllBandsintownEvents(),
     fetchTicketmasterEvents(),
   ])
 
   const allRaw = [
     ...(uitEvents.status === 'fulfilled' ? uitEvents.value : []),
-    ...(bandsintownEvents.status === 'fulfilled' ? bandsintownEvents.value : []),
     ...(ticketmasterEvents.status === 'fulfilled' ? ticketmasterEvents.value : []),
   ]
 
