@@ -103,7 +103,7 @@ app.get('/events', async (req) => {
   return grouped.slice(off, off + lim)
 })
 
-// GET /events/:id — detail
+// GET /events/:id — detail (with sibling occurrences)
 app.get('/events/:id', async (req) => {
   const { data, error } = await db
     .from('events')
@@ -111,7 +111,36 @@ app.get('/events/:id', async (req) => {
     .eq('id', req.params.id)
     .single()
   if (error) throw error
-  return transformEvent(data)
+
+  // Find sibling occurrences: same title + same venue_name (or same city if venue null).
+  const title = (data.title || '').trim()
+  const venue = data.venue_name || null
+  let siblings = []
+  if (title) {
+    let sq = db
+      .from('events')
+      .select('id, date_start, date_end, ticket_url, price_min, price_max')
+      .ilike('title', title)
+      .gte('date_start', new Date().toISOString())
+      .order('date_start', { ascending: true })
+    if (venue) sq = sq.eq('venue_name', venue)
+    else if (data.city) sq = sq.eq('city', data.city).is('venue_name', null)
+    const { data: sibs } = await sq
+    siblings = (sibs || []).map(s => ({
+      id: s.id,
+      date_start: s.date_start,
+      date_end: s.date_end,
+      price_min: s.price_min,
+      price_max: s.price_max,
+      ticket_url: affiliateUrl(s.ticket_url, data.source),
+    }))
+  }
+
+  return {
+    ...transformEvent(data),
+    occurrence_count: siblings.length || 1,
+    occurrences: siblings,
+  }
 })
 
 // POST /users — registreer nieuw apparaat
