@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
+import cors    from '@fastify/cors'
 import cron    from 'node-cron'
 import { db }  from './db.js'
 import { runAggregation, notifyUsers } from './aggregator.js'
@@ -7,6 +8,24 @@ import { checkWatchlist }              from './watchlist.js'
 import { affiliateUrl }                from './affiliate.js'
 
 const app = Fastify({ logger: true })
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
+await app.register(cors, {
+  origin: (origin, cb) => {
+    // Allow: no-origin (curl, server-to-server), configured allowlist, and any *.vercel.app preview
+    if (!origin) return cb(null, true)
+    const allowlist = [
+      'https://kulturr-frontend.vercel.app',
+      'https://kulturr.be',
+      'https://www.kulturr.be',
+      'http://localhost:3000',
+    ]
+    if (allowlist.includes(origin)) return cb(null, true)
+    if (/^https:\/\/kulturr-frontend-[a-z0-9-]+\.vercel\.app$/.test(origin)) return cb(null, true)
+    return cb(new Error('Not allowed by CORS'), false)
+  },
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+})
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
