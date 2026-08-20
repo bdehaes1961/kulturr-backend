@@ -41,20 +41,66 @@ function transformEvent(event) {
 // Queryparams: city, category, limit (default 20), offset (default 0)
 app.get('/events', async (req) => {
   const { city, category, limit = 20, offset = 0 } = req.query
+  const lim = Number(limit)
+  const off = Number(offset)
+
+  // Fetch a larger window so grouping still yields ~limit distinct series.
+  // Conservative multiplier: some series have 30+ occurrences.
+  const FETCH_MULT = 8
+  const FETCH_CAP = 500
 
   let query = db
     .from('events')
-    .select('id, source, title, venue_name, city, date_start, price_min, category, image_url, ticket_url, artists')
+    .select('id, source, title, venue_name, city, date_start, date_end, price_min, price_max, category, image_url, ticket_url, artists')
     .gte('date_start', new Date().toISOString())
     .order('date_start', { ascending: true })
-    .range(Number(offset), Number(offset) + Number(limit) - 1)
+    .range(0, Math.min((off + lim) * FETCH_MULT, FETCH_CAP) - 1)
 
   if (city)     query = query.eq('city', city)
   if (category) query = query.eq('category', category)
 
   const { data, error } = await query
   if (error) throw error
-  return (data ?? []).map(transformEvent)
+
+  // Group by (lower(title), lower(venue_name or city)).
+  // Keep the earliest-date row as representative; collect all occurrences.
+  const groups = new Map()
+  for (const row of data ?? []) {
+    const key = [
+      (row.title || '').toLowerCase().trim(),
+      (row.venue_name || row.city || '').toLowerCase().trim(),
+    ].join('|')
+    let g = groups.get(key)
+    if (!g) {
+      g = { rep: row, occurrences: [] }
+      groups.set(key, g)
+    }
+    g.occurrences.push({
+      id: row.id,
+      date_start: row.date_start,
+      date_end: row.date_end,
+      ticket_url: row.ticket_url,
+    })
+  }
+
+  const grouped = Array.from(groups.values()).map(({ rep, occurrences }) => {
+    // Sort occurrences chronologically for stable ranges.
+    occurrences.sort((a, b) => (a.date_start || '').localeCompare(b.date_start || ''))
+    const first = occurrences[0]
+    const last = occurrences[occurrences.length - 1]
+    return {
+      ...transformEvent(rep),
+      // Overwrite date_start/date_end with the series range so the card can render it directly.
+      date_start: first.date_start,
+      date_end: occurrences.length > 1 ? (last.date_end || last.date_start) : rep.date_end,
+      occurrence_count: occurrences.length,
+      occurrences: occurrences.map(o => ({ ...o, ticket_url: affiliateUrl(o.ticket_url, rep.source) })),
+    }
+  })
+
+  // Sort by earliest date_start then paginate at the group level.
+  grouped.sort((a, b) => (a.date_start || '').localeCompare(b.date_start || ''))
+  return grouped.slice(off, off + lim)
 })
 
 // GET /events/:id — detail
