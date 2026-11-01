@@ -182,9 +182,9 @@ app.patch('/users/:id', async (req) => {
 })
 
 // POST /watchlist — volg een event (sla op voor on-sale notificatie)
-app.post('/watchlist', async (req) => {
+app.post('/watchlist', async (req, reply) => {
   const { user_id, event_id, notify_on_sale = true, notify_reminder = false } = req.body ?? {}
-  if (!user_id || !event_id) return app.httpErrors?.badRequest('user_id en event_id zijn verplicht')
+  if (!user_id || !event_id) return reply.code(400).send({ error: 'user_id en event_id zijn verplicht' })
   const { data, error } = await db
     .from('watchlist')
     .upsert({ user_id, event_id, notify_on_sale, notify_reminder }, { onConflict: 'user_id,event_id' })
@@ -195,8 +195,9 @@ app.post('/watchlist', async (req) => {
 })
 
 // DELETE /watchlist — verwijder uit watchlist
-app.delete('/watchlist', async (req) => {
+app.delete('/watchlist', async (req, reply) => {
   const { user_id, event_id } = req.body ?? {}
+  if (!user_id || !event_id) return reply.code(400).send({ error: 'user_id en event_id zijn verplicht' })
   const { error } = await db
     .from('watchlist')
     .delete()
@@ -210,10 +211,11 @@ app.delete('/watchlist', async (req) => {
 app.get('/watchlist/:user_id', async (req) => {
   const { data, error } = await db
     .from('watchlist')
-    .select('id, notify_on_sale, notify_reminder, notified_at, events(*)')
+    .select('id, notify_on_sale, notify_reminder, notified_at, created_at, events(id, source, title, venue_name, city, date_start, date_end, price_min, price_max, category, image_url, ticket_url)')
     .eq('user_id', req.params.user_id)
+    .order('created_at', { ascending: false })
   if (error) throw error
-  return data
+  return (data ?? []).map(w => ({ ...w, events: transformEvent(w.events) }))
 })
 
 // POST /admin/aggregate — handmatig triggeren
