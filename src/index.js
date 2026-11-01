@@ -41,35 +41,49 @@ function transformEvent(event) {
 // Queryparams: city, category, limit (default 20), offset (default 0)
 app.get('/events', async (req) => {
   const { city, category, limit = 20, offset = 0 } = req.query
-  const lim = Number(limit)
-  const off = Number(offset)
+  const lim = Math.min(Math.max(Number(limit) || 20, 1), 100)
+  const off = Math.max(Number(offset) || 0, 0)
 
-  // Fetch a larger window so grouping still yields ~limit distinct series.
-  // Conservative multiplier: some series have 30+ occurrences.
-  const FETCH_MULT = 8
-  const FETCH_CAP = 500
+  // Events met veel data (bv. een expo die elke dag open is) nemen veel rijen in.
+  // Daarom halen we rijen op in blokken tot er genoeg unieke reeksen zijn voor
+  // off + lim (+1 om zeker te zijn dat de laatste reeks volledig is), of tot de
+  // rijen op zijn. Vroeger stopte dit hard op 500 rijen, waardoor de feed na
+  // een paar pagina's leeg bleef.
+  const CHUNK = 1000        // Supabase geeft standaard max 1000 rijen per request
+  const MAX_ROWS = 20000    // veiligheidsgrens per request
+  const needGroups = off + lim + 1
 
-  let query = db
-    .from('events')
-    .select('id, source, title, venue_name, city, date_start, date_end, price_min, price_max, category, image_url, ticket_url, artists')
-    .gte('date_start', new Date().toISOString())
-    .order('date_start', { ascending: true })
-    .range(0, Math.min((off + lim) * FETCH_MULT, FETCH_CAP) - 1)
+  const data = []
+  const seen = new Set()
+  const keyOf = (row) => [
+    (row.title || '').toLowerCase().trim(),
+    (row.venue_name || row.city || '').toLowerCase().trim(),
+  ].join('|')
 
-  if (city)     query = query.eq('city', city)
-  if (category) query = query.eq('category', category)
+  for (let from = 0; from < MAX_ROWS; from += CHUNK) {
+    let query = db
+      .from('events')
+      .select('id, source, title, venue_name, city, date_start, date_end, price_min, price_max, category, image_url, ticket_url, artists')
+      .gte('date_start', new Date().toISOString())
+      .order('date_start', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + CHUNK - 1)
 
-  const { data, error } = await query
-  if (error) throw error
+    if (city)     query = query.eq('city', city)
+    if (category) query = query.eq('category', category)
+
+    const { data: rows, error } = await query
+    if (error) throw error
+    if (!rows?.length) break
+    for (const row of rows) { data.push(row); seen.add(keyOf(row)) }
+    if (rows.length < CHUNK || seen.size >= needGroups) break
+  }
 
   // Group by (lower(title), lower(venue_name or city)).
   // Keep the earliest-date row as representative; collect all occurrences.
   const groups = new Map()
-  for (const row of data ?? []) {
-    const key = [
-      (row.title || '').toLowerCase().trim(),
-      (row.venue_name || row.city || '').toLowerCase().trim(),
-    ].join('|')
+  for (const row of data) {
+    const key = keyOf(row)
     let g = groups.get(key)
     if (!g) {
       g = { rep: row, occurrences: [] }
